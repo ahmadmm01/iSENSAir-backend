@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: fastapi-sftp-backend
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port 10000"
+    envVars:
+      - key: SFTP_HOST
+        sync: false
+      - key: SFTP_USERNAME
+        sync: false
+      - key: SFTP_PASSWORD
+        sync: false
+      - key: REMOTE_LOG_PATH
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
