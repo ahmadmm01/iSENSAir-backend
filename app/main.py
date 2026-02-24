@@ -7,9 +7,8 @@ from app.sftp_client import SFTPClient
 from app.csv_service import parse_csv, is_valid_row
 from app.config import settings
 
-app = FastAPI(title="Semantan Data Logger API")
+app = FastAPI(title="iSENSAir Data Logger API")
 
-# Ganti allow_origins nanti dengan domain vercel kamu
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,15 +20,30 @@ app.add_middleware(
 sftp_client = SFTPClient()
 
 
-# ==============================
-# ENDPOINT: GET LATEST
-# ==============================
+def validate_location(location: str):
+    if location not in settings.LOCATIONS:
+        raise HTTPException(status_code=400, detail="Invalid location")
+
+
+# ===============================
+# STATUS
+# ===============================
+@app.get("/")
+def get_status():
+    return {"status": "ok", "locations": list(settings.LOCATIONS.keys())}
+
+
+# ===============================
+# LATEST
+# ===============================
 
 
 @app.get("/latest")
-def get_latest():
+def get_latest(location: str = Query(..., example="semantan")):
 
-    files = sftp_client.list_files()
+    validate_location(location)
+
+    files = sftp_client.list_files(location)
     csv_files = [f for f in files if f.filename.endswith(".csv")]
 
     if not csv_files:
@@ -38,30 +52,29 @@ def get_latest():
     latest_file = max(csv_files, key=lambda x: x.st_mtime)
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        sftp_client.download_file(latest_file.filename, tmp.name)
+        sftp_client.download_file(location, latest_file.filename, tmp.name)
         data = parse_csv(tmp.name)
 
-    if not data:
-        raise HTTPException(status_code=404, detail="No valid data")
-
-    # Scan dari belakang cari row valid
     for row in reversed(data):
         if is_valid_row(row):
-            return {"file": latest_file.filename, "latest": row}
+            return {"location": location, "file": latest_file.filename, "latest": row}
 
-    raise HTTPException(status_code=404, detail="No non-empty valid data found")
+    raise HTTPException(status_code=404, detail="No valid data found")
 
 
-# ==============================
-# ENDPOINT: DATE RANGE
-# ==============================
+# ===============================
+# BY DATE RANGE
+# ===============================
 
 
 @app.get("/by-date-range")
 def get_by_date_range(
+    location: str = Query(..., example="semantan"),
     start: str = Query(..., example="2026-02-23"),
     end: str = Query(..., example="2026-02-24"),
 ):
+
+    validate_location(location)
 
     try:
         start_date = datetime.strptime(start, "%Y-%m-%d")
@@ -74,22 +87,24 @@ def get_by_date_range(
             status_code=400, detail="Start date must be before end date"
         )
 
-    # Optional safety limit (misal max 14 hari)
     if (end_date - start_date).days > 14:
         raise HTTPException(status_code=400, detail="Maximum range is 14 days")
+
+    prefix = settings.LOCATIONS[location]["prefix"]
 
     all_data = []
     files_used = []
 
     current_date = start_date
+
     while current_date <= end_date:
 
         formatted = current_date.strftime("%Y%m%d")
-        filename = f"SemantanDataLogger_{formatted}.csv"
+        filename = f"{prefix}{formatted}.csv"
 
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             try:
-                sftp_client.download_file(filename, tmp.name)
+                sftp_client.download_file(location, filename, tmp.name)
             except:
                 current_date += timedelta(days=1)
                 continue
@@ -104,6 +119,7 @@ def get_by_date_range(
         raise HTTPException(status_code=404, detail="No data found in range")
 
     return {
+        "location": location,
         "start": start,
         "end": end,
         "files_used": files_used,

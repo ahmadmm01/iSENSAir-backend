@@ -25,6 +25,21 @@ def parse_timestamp(value: str):
         return None
 
 
+def is_valid_row(row: dict) -> bool:
+
+    if not row.get("timestamp"):
+        return False
+
+    sensors = ["DO_Sensor", "pH_Sensor", "COD_Sensor", "BOD_Sensor", "Tr_Sensor"]
+
+    for sensor in sensors:
+        value = row.get(sensor)
+        if value is not None and abs(value) > 1e-6:
+            return True
+
+    return False
+
+
 def parse_csv(filepath: str):
     data = []
 
@@ -37,7 +52,6 @@ def parse_csv(filepath: str):
 
         for row in reader:
 
-            # Skip row rusak
             if len(row) != EXPECTED_COLUMNS:
                 continue
 
@@ -72,29 +86,3 @@ def parse_csv(filepath: str):
             data.append(parsed)
 
     return data
-
-def is_valid_row(row: dict) -> bool:
-    """
-    Definisikan row valid:
-    - Timestamp ada
-    - Minimal salah satu sensor utama tidak None dan tidak extremely small
-    """
-
-    if not row.get("timestamp"):
-        return False
-
-    sensors = [
-        "DO_Sensor",
-        "pH_Sensor",
-        "COD_Sensor",
-        "BOD_Sensor",
-        "Tr_Sensor"
-    ]
-
-
-    for sensor in sensors:
-        value = row.get(sensor)
-        if value is not None and abs(value) > 1e-6:
-            return True
-
-    return False
