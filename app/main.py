@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 from datetime import datetime, timedelta
+import re
 
 from app.sftp_client import SFTPClient
 from app.csv_service import parse_csv, is_valid_row
@@ -24,10 +25,30 @@ def validate_location(location: str):
     if location not in settings.LOCATIONS:
         raise HTTPException(status_code=400, detail="Invalid location")
 
+        import re
+
+
+def extract_date_from_filename(filename: str, prefix: str):
+    """
+    Extract YYYYMMDD dari nama file.
+    Example:
+    SemantanDataLogger_20260224.csv
+    """
+
+    pattern = f"^{prefix}(\\d{{8}})\\.csv$"
+    match = re.match(pattern, filename)
+
+    if not match:
+        return None
+
+    return match.group(1)
+
 
 # ===============================
 # STATUS
 # ===============================
+
+
 @app.get("/")
 def get_status():
     return {"status": "ok", "locations": list(settings.LOCATIONS.keys())}
@@ -43,31 +64,37 @@ def get_latest(location: str = Query(..., example="semantan")):
 
     validate_location(location)
 
+    prefix = settings.LOCATIONS[location]["prefix"]
+
     files = sftp_client.list_files(location)
-    csv_files = [f for f in files if f.filename.endswith(".csv")]
 
-    if not csv_files:
-        raise HTTPException(status_code=404, detail="No CSV files found")
+    dated_files = []
 
-    # Urutkan dari terbaru ke terlama
-    sorted_files = sorted(csv_files, key=lambda x: x.st_mtime, reverse=True)
+    for f in files:
+        date_str = extract_date_from_filename(f.filename, prefix)
+        if date_str:
+            dated_files.append((f.filename, date_str))
 
-    for file_attr in sorted_files:
+    if not dated_files:
+        raise HTTPException(status_code=404, detail="No valid log files found")
+
+    # Sort berdasarkan tanggal di nama file (descending)
+    sorted_files = sorted(dated_files, key=lambda x: x[1], reverse=True)
+
+    for filename, _ in sorted_files:
 
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             try:
-                sftp_client.download_file(location, file_attr.filename, tmp.name)
+                sftp_client.download_file(location, filename, tmp.name)
             except:
                 continue
 
             data = parse_csv(tmp.name)
 
-        # Cari row valid terakhir di file ini
         for row in reversed(data):
             if is_valid_row(row):
-                return {"location": location, "file": file_attr.filename, "latest": row}
+                return {"location": location, "file": filename, "latest": row}
 
-    # Kalau semua file kosong
     raise HTTPException(status_code=404, detail="No valid data found in any file")
 
 
