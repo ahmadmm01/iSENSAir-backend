@@ -49,17 +49,26 @@ def get_latest(location: str = Query(..., example="semantan")):
     if not csv_files:
         raise HTTPException(status_code=404, detail="No CSV files found")
 
-    latest_file = max(csv_files, key=lambda x: x.st_mtime)
+    # Urutkan dari terbaru ke terlama
+    sorted_files = sorted(csv_files, key=lambda x: x.st_mtime, reverse=True)
 
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        sftp_client.download_file(location, latest_file.filename, tmp.name)
-        data = parse_csv(tmp.name)
+    for file_attr in sorted_files:
 
-    for row in reversed(data):
-        if is_valid_row(row):
-            return {"location": location, "file": latest_file.filename, "latest": row}
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            try:
+                sftp_client.download_file(location, file_attr.filename, tmp.name)
+            except:
+                continue
 
-    raise HTTPException(status_code=404, detail="No valid data found")
+            data = parse_csv(tmp.name)
+
+        # Cari row valid terakhir di file ini
+        for row in reversed(data):
+            if is_valid_row(row):
+                return {"location": location, "file": file_attr.filename, "latest": row}
+
+    # Kalau semua file kosong
+    raise HTTPException(status_code=404, detail="No valid data found in any file")
 
 
 # ===============================
