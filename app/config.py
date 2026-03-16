@@ -13,12 +13,17 @@ class Settings:
     # Konfigurasi lokasi
     LOCATIONS = {
         "semantan": {
-            "path": "/root/Semantan/Data Logger",
+            "path": "/root/BKSA_Semantan/Data Logger",
             "prefix": "SemantanDataLogger_",
         },
         "kechau": {
-            "path": "/root/Kechau/Data Logger",
+            "path": "/root/BKSA_Kechau/Data Logger",
             "prefix": "KechauDataLogger_"},
+        "bilut": {
+            "path": "/root/BKSA_Bilut/Data Logger",
+            "prefix": "BilutDataLogger_"
+        }
+
     }
 
 
