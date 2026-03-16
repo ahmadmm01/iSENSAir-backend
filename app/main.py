@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 from datetime import datetime, timedelta
 import re
+import os
 
 from app.sftp_client import SFTPClient
 from app.csv_service import parse_csv, is_valid_row
@@ -10,9 +11,11 @@ from app.config import settings
 
 app = FastAPI(title="iSENSAir Data Logger API")
 
+origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://isensair.netlify.app/"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
