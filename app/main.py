@@ -126,8 +126,8 @@ def get_by_date_range(
             status_code=400, detail="Start date must be before end date"
         )
 
-    if (end_date - start_date).days > 14:
-        raise HTTPException(status_code=400, detail="Maximum range is 14 days")
+    if (end_date - start_date).days > 30:
+        raise HTTPException(status_code=400, detail="Maximum range is 30 days")
 
     prefix = settings.LOCATIONS[location]["prefix"]
 
