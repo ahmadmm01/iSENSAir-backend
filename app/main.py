@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import tempfile
 from datetime import datetime, timedelta
@@ -10,6 +11,7 @@ from app.csv_service import parse_csv, is_valid_row
 from app.config import settings
 
 app = FastAPI(title="iSENSAir Data Logger API")
+favicon_path = os.path.join(os.path.dirname(__file__), "favicon.ico")
 
 origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 
@@ -53,8 +55,39 @@ def extract_date_from_filename(filename: str, prefix: str):
 
 
 @app.get("/")
-def get_status():
-    return {"status": "ok", "locations": list(settings.LOCATIONS.keys())}
+def get_status(request: Request):
+        accept_header = request.headers.get("accept", "")
+
+        if "text/html" in accept_header:
+                return HTMLResponse(
+                        """
+                        <!doctype html>
+                        <html lang="en">
+                            <head>
+                                <meta charset="utf-8" />
+                                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                                <title>iSENSAir Data Logger API</title>
+                                <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+                            </head>
+                            <body>
+                                <pre>{"status": "ok", "locations": %s}</pre>
+                            </body>
+                        </html>
+                        """
+                        % list(settings.LOCATIONS.keys()),
+                        media_type="text/html",
+                )
+
+        return {"status": "ok", "locations": list(settings.LOCATIONS.keys())}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def get_favicon():
+    return FileResponse(
+        favicon_path,
+        media_type="image/x-icon",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 # ===============================
