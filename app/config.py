@@ -22,8 +22,13 @@ class Settings:
         "bilut": {
             "path": "/root/BKSA_Bilut/Data Logger",
             "prefix": "BilutDataLogger_"
+        },
+        "telum": {
+            # "path": "/root/BKSA_Telum/Data Logger",
+            # "prefix": "TelumDataLogger_"
+            "path": "/root/BKSA_Semantan/Data Logger",
+            "prefix": "SemantanDataLogger_",
         }
-
     }
 
 
